@@ -3,13 +3,18 @@ from urllib.request import urlopen
 from xml.etree.ElementTree import parse
 import pandas
 
+base = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
+
+# helper functions
+def extract_text(elem):
+    return ''.join(elem.itertext())
+
 # Solicit user input
 input_term = input("Enter your search terms: ")
-base = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
 mydict = {'term': input_term}
 
 # Construct esearch url to retrieve Pubmed IDs
-url_esearch = base + "esearch.fcgi?db=pubmed&" + urlencode(mydict)
+url_esearch = base + "esearch.fcgi?db=pubmed&retmax=100000&" + urlencode(mydict)
 
 # Parse esearch XML
 var_url_esearch = urlopen(url_esearch)
@@ -22,11 +27,11 @@ idList = list(map(lambda x: x.text, xmlList_esearch))
 idListJoined = ','.join(idList)
 
 # Construl efetch url to retrieve article details
-url_efetch_xml = base + "efetch.fcgi?db=pubmed&id=" + idListJoined + "&rettype=xml"
+url_efetch = base + "efetch.fcgi?db=pubmed&id=" + idListJoined + "&rettype=xml"
 
 # Parse efetch XML
-var_url_efetch_xml = urlopen(url_efetch_xml)
-xmldoc_efetch = parse(var_url_efetch_xml)
+var_url_efetch = urlopen(url_efetch)
+xmldoc_efetch = parse(var_url_efetch)
 root = xmldoc_efetch.getroot()
 
 # Add relevant details to a dataframe for export
@@ -34,15 +39,23 @@ articleList = []
 colnames = ['Title', 'First Author', 'Last Author', 'Journal', 'Pub Year', 'Abstract']
 
 for article in root.findall('./PubmedArticle/MedlineCitation'):
-    title = article.find('.//ArticleTitle').text
-    firstauth = article.find('.//Author[1].LastName').text
-    lastauth = article.find('.//Author[last()].LastName').text
-    journal = article.find('.//Journal/ISOAbbreviation').text
-    pubyear = article.find('.//PubDate/Year').text
-    abstract = article.find('.//AbstractText').text
+    #import pdb; pdb.set_trace()
+    title = extract_text(article.find('.//ArticleTitle'))
+    firstauth = extract_text(article.find('.//Author[1].LastName'))
+    try:
+        lastauth = extract_text(article.find('.//Author[last()].LastName'))
+    except AttributeError:
+        lastauth = extract_text(article.find('.//Author[last()-1].LastName'))
+    journal = extract_text(article.find('.//Journal/ISOAbbreviation'))
+    pubyear = extract_text(article.find('.//PubDate/Year'))
+    abstract = extract_text(article.find('.//AbstractText'))
     article_joined = [title, firstauth, lastauth, journal, pubyear, abstract]
     articleList.append(article_joined)
 
 df = pandas.DataFrame(articleList, columns = colnames)
-df.to_csv('query.csv', index=False)
 
+# Create a Pandas Excel writer using xlsxwriter as the engine
+writer = pandas.ExcelWriter('query.xlsx', engine='xlsxwriter')
+#df.to_excel(writer)
+writer.save()
+df.to_excel('query.xlsx', index=False, encoding='utf-8')
