@@ -1,0 +1,1 @@
+grabAbstracts.py was a side project I did while I was rotating in Dr. Melody Li's lab at UCLA in March 2020. As research work became virtual, I was asked to write a program for lab members to query PubMed articles and output a spreadsheet with the fields they want (title, first author, last author, journal, publication year, and abstract).
